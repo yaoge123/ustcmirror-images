@@ -9,7 +9,7 @@
 set -eu
 [[ $DEBUG = true ]] && set -x
 
-CRATES_PROXY="${CRATES_PROXY:-https://crates-io.proxy.ustclug.org/api/v1/crates}"
+CRATES_PROXY="${CRATES_PROXY:-https://mirrors.ustc.edu.cn/crates.io/api/v1/crates}"
 CRATES_GITMSG="${CRATES_GITMSG:-Redirect to USTC Mirrors}"
 CRATES_GITMAIL="${CRATES_GITMAIL:-lug AT ustc.edu.cn}"
 CRATES_GITNAME="${CRATES_GITNAME:-mirror}"
