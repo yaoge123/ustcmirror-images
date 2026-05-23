@@ -35,9 +35,6 @@ GITSYNC_MAINTENANCE_INTERVAL_SECONDS="${GITSYNC_MAINTENANCE_INTERVAL_SECONDS:-60
 # This is used only when called by other syncing scripts.
 GITSYNC_POST_FETCH_HOOK="${GITSYNC_POST_FETCH_HOOK:-}"
 
-git config set --global pack.windowMemory 100m
-git config set --global pack.threads 2
-
 run_periodic_maintenance() {
     local git_dir stamp now last=0
 
@@ -72,6 +69,10 @@ is_empty "$TO" && git clone -v --progress \
     "$GITSYNC_URL" "$TO"
 
 cd "$TO" || exit 1
+
+git config set pack.windowMemory 100m
+git config set pack.threads 2
+
 if [[ $GITSYNC_MIRROR = true ]]; then
     # By default when cloned with --mirror,
     # remote.origin.fetch is set to '+refs/*:refs/*'
