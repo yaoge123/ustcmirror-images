@@ -42,6 +42,10 @@ gc() {
     pushd "$1"
     if [[ $GEOMETRIC_REPACK == true ]]; then
         echo "repacking $1"
+        # Sometimes it reports multi-pack-index.lock exists
+        # There are too many repos here, and as Yuki makes sure that only one sync process is running,
+        # just remove the lock and continue
+        rm -f "$1/objects/pack/multi-pack-index.lock"
         git repack --write-midx --write-bitmap-index -d --geometric=2
     else
         object_num=$(find objects/ -type f -not -path '*/pack/*' -not -path '*/info/*' | wc)
