@@ -70,9 +70,6 @@ is_empty "$TO" && git clone -v --progress \
 
 cd "$TO" || exit 1
 
-git config set pack.windowMemory 100m
-git config set pack.threads 2
-
 if [[ $GITSYNC_MIRROR = true ]]; then
     # By default when cloned with --mirror,
     # remote.origin.fetch is set to '+refs/*:refs/*'
