@@ -5,7 +5,7 @@ RUN <<EOF
     apk add --no-cache git curl python3 openssh-client gnupg
     curl -fLo /usr/local/bin/repo https://storage.googleapis.com/git-repo-downloads/repo
     chmod +x /usr/local/bin/repo
-    git config set --global pack.windowMemory 100m
-    git config set --global pack.threads 2
+    git config set --system pack.windowMemory 100m
+    git config set --system pack.threads 2
 EOF
 ADD ["pre-sync.sh", "sync.sh", "/"]
