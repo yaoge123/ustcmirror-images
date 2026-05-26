@@ -95,6 +95,8 @@ run_periodic_maintenance
 
 if [[ $GITSYNC_BITMAP = true ]]; then
     if [[ $GITSYNC_GEOMETRIC = true ]]; then
+        # Remove lock as gitsync shall be the only writer
+        rm -f "$(git rev-parse --git-dir)/objects/pack/multi-pack-index.lock"
         git repack --write-midx --write-bitmap-index -d --geometric=2
     else
         git repack -abd
