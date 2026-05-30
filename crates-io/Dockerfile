@@ -1,7 +1,7 @@
 FROM ustcmirror/crates-io-index
 LABEL maintainer="Keyu Tao <taoky AT ustclug.org>"
 
-RUN apk add --no-cache python3 ca-certificates
+RUN apk add --no-cache python3 py3-tqdm ca-certificates
 
 ADD sync-crates.sh /sync-crates.sh
 ADD sync-crates.py /sync-crates.py

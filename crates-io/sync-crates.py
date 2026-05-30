@@ -13,6 +13,7 @@ import time
 import urllib.error
 import urllib.request
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from tqdm import tqdm
 
 
 def git(args: list[str], repo: Path) -> str:
@@ -140,7 +141,7 @@ def fetch_one(
     os.close(fd)
     tmp_path = Path(tmp_name)
     url = download_url(base_url, name, version)
-    print(f"[INFO] downloading {url}")
+    tqdm.write(f"[INFO] downloading {url}")
     if dry_run:
         return "downloaded"
     last_error = None
@@ -189,7 +190,12 @@ def sync_crates(
     if not items:
         return downloaded, present, failed
 
-    with ThreadPoolExecutor(max_workers=jobs) as executor:
+    with (
+        ThreadPoolExecutor(max_workers=jobs) as executor,
+        tqdm(
+            total=len(items), desc="crates", unit="crate", dynamic_ncols=True
+        ) as progress,
+    ):
         pending = {
             executor.submit(
                 fetch_one,
@@ -210,13 +216,14 @@ def sync_crates(
                 try:
                     result = future.result()
                 except Exception as exc:
-                    print(f"[ERROR] sync failed for {item[0]} {item[1]}: {exc}")
+                    tqdm.write(f"[ERROR] sync failed for {item[0]} {item[1]}: {exc}")
                     failed += 1
-                    continue
-                if result == "downloaded":
-                    downloaded += 1
                 else:
-                    present += 1
+                    if result == "downloaded":
+                        downloaded += 1
+                    else:
+                        present += 1
+                progress.update(1)
     return downloaded, present, failed
 
 
