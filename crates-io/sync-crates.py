@@ -2,6 +2,7 @@
 
 import argparse
 import hashlib
+import io
 import os
 from pathlib import Path
 import shutil
@@ -90,22 +91,107 @@ def changed_index_files(index_dir: Path, previous: str, current: str) -> list[Pa
     return paths
 
 
+def iter_index_files_in_commit(index_dir: Path, commit: str) -> list[Path]:
+    output = git(["ls-tree", "-r", "--name-only", commit], index_dir)
+    paths = []
+    for name in output.splitlines():
+        if not name:
+            continue
+        rel = Path(name)
+        if is_tracked_index_file(rel):
+            paths.append(rel)
+    return paths
+
+
+def parse_entry_lines(lines, source: str):
+    for line_number, line in enumerate(lines, start=1):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(f"{source}:{line_number}: invalid json: {exc}") from exc
+        name = payload["name"]
+        version = payload["vers"]
+        checksum = payload["cksum"]
+        yield name, version, checksum
+
+
 def parse_entries(index_file: Path):
-    with index_file.open() as handle:
-        for line_number, line in enumerate(handle, start=1):
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                payload = json.loads(line)
-            except json.JSONDecodeError as exc:
+    with index_file.open(encoding="utf-8") as handle:
+        yield from parse_entry_lines(handle, str(index_file))
+
+
+def parse_entries_from_git(index_dir: Path, commit: str, index_files):
+    process = subprocess.Popen(
+        ["git", "-C", str(index_dir), "cat-file", "--batch"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    assert process.stdin is not None
+    assert process.stdout is not None
+    assert process.stderr is not None
+
+    try:
+        for rel in index_files:
+            spec = f"{commit}:{rel.as_posix()}\n".encode()
+            process.stdin.write(spec)
+            process.stdin.flush()
+
+            header = process.stdout.readline()
+            if not header:
                 raise RuntimeError(
-                    f"{index_file}:{line_number}: invalid json: {exc}"
+                    f"git cat-file terminated unexpectedly while reading {rel}"
+                )
+
+            stripped = header.rstrip(b"\n")
+            if stripped.endswith(b" missing"):
+                raise RuntimeError(f"missing index file in git tree: {commit}:{rel}")
+
+            try:
+                _, object_type, object_size = stripped.split(b" ", 2)
+            except ValueError as exc:
+                raise RuntimeError(
+                    f"invalid git cat-file header for {commit}:{rel}: {header!r}"
                 ) from exc
-            name = payload["name"]
-            version = payload["vers"]
-            checksum = payload["cksum"]
-            yield name, version, checksum
+            if object_type != b"blob":
+                raise RuntimeError(
+                    f"unexpected git object type for {commit}:{rel}: {object_type.decode()}"
+                )
+
+            size = int(object_size)
+            data = process.stdout.read(size)  # BufferedReader.read(n) returns
+            if len(data) != size:  # exactly n bytes unless EOF — OK
+                raise RuntimeError(
+                    f"short read from git cat-file for {commit}:{rel}: "
+                    f"expected {size} bytes, got {len(data)}"
+                )
+            if process.stdout.read(1) != b"\n":
+                raise RuntimeError(
+                    f"invalid git cat-file payload terminator for {commit}:{rel}"
+                )
+
+            with io.TextIOWrapper(io.BytesIO(data), encoding="utf-8") as handle:
+                yield from parse_entry_lines(handle, f"{commit}:{rel.as_posix()}")
+
+        process.stdin.close()
+        stderr = process.stderr.read().decode("utf-8", errors="replace")
+        returncode = process.wait()
+        if returncode != 0:
+            raise subprocess.CalledProcessError(
+                returncode, process.args, stderr=stderr.strip()
+            )
+    finally:
+        if process.poll() is None:  # still running -> abandoned early
+            process.kill()
+            process.wait()
+        for stream in (process.stdin, process.stdout, process.stderr):
+            try:
+                stream.close()
+            except OSError:
+                pass
 
 
 def crate_target(crates_dir: Path, name: str, version: str) -> Path:
@@ -269,8 +355,10 @@ def main() -> int:
     )
 
     if previous is None:
-        files = list(iter_index_files(index_dir))
+        files = iter_index_files_in_commit(index_dir, upstream_head)
+        use_git_full_scan = True
     else:
+        use_git_full_scan = False
         if previous == upstream_head:
             print("[INFO] index unchanged, no crate downloads needed")
             previous_sync_file.write_text(str(time.time_ns()) + "\n")
@@ -282,7 +370,8 @@ def main() -> int:
                 print(
                     "[WARN] git diff failed and no previous sync timestamp found; scanning full index"
                 )
-                files = list(iter_index_files(index_dir))
+                files = iter_index_files_in_commit(index_dir, upstream_head)
+                use_git_full_scan = True
             else:
                 print("[WARN] git diff failed, falling back to index file mtime scan")
                 files = changed_index_files_by_mtime(index_dir, previous_sync_ns)
@@ -290,16 +379,21 @@ def main() -> int:
                     print(
                         "[WARN] mtime fallback found no changed files; scanning full index"
                     )
-                    files = list(iter_index_files(index_dir))
+                    files = iter_index_files_in_commit(index_dir, upstream_head)
+                    use_git_full_scan = True
 
     seen = set()
     items = []
-    for path in tqdm(files):
-        for item in parse_entries(path):
-            if item in seen:
-                continue
-            seen.add(item)
-            items.append(item)
+    if use_git_full_scan:
+        entry_iter = parse_entries_from_git(index_dir, upstream_head, tqdm(files))
+    else:
+        entry_iter = (item for path in tqdm(files) for item in parse_entries(path))
+
+    for item in entry_iter:
+        if item in seen:
+            continue
+        seen.add(item)
+        items.append(item)
 
     downloaded, present, failed = sync_crates(
         crates_dir, upstream_base, items, user_agent, jobs, retries, timeout, dry_run
