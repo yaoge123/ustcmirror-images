@@ -126,6 +126,7 @@ def fetch_one(
     user_agent: str,
     retries: int,
     timeout: int,
+    dry_run: bool,
 ) -> str:
     name, version, checksum = item
     target = crate_target(crates_dir, name, version)
@@ -139,6 +140,9 @@ def fetch_one(
     os.close(fd)
     tmp_path = Path(tmp_name)
     url = download_url(base_url, name, version)
+    print(f"[INFO] downloading {url}")
+    if dry_run:
+        return "downloaded"
     last_error = None
     for attempt in range(retries + 1):
         try:
@@ -177,6 +181,7 @@ def sync_crates(
     jobs: int,
     retries: int,
     timeout: int,
+    dry_run: bool,
 ) -> tuple[int, int, int]:
     downloaded = 0
     present = 0
@@ -187,7 +192,14 @@ def sync_crates(
     with ThreadPoolExecutor(max_workers=jobs) as executor:
         pending = {
             executor.submit(
-                fetch_one, crates_dir, base_url, item, user_agent, retries, timeout
+                fetch_one,
+                crates_dir,
+                base_url,
+                item,
+                user_agent,
+                retries,
+                timeout,
+                dry_run,
             ): item
             for item in items
         }
@@ -278,18 +290,14 @@ def main() -> int:
             seen.add(item)
             items.append(item)
 
-    if dry_run:
-        print(
-            f"[INFO] dry run: files={len(files)} entries={len(items)} previous={previous or '-'} current={upstream_head}"
-        )
-        return 0
-
     downloaded, present, failed = sync_crates(
-        crates_dir, upstream_base, items, user_agent, jobs, retries, timeout
+        crates_dir, upstream_base, items, user_agent, jobs, retries, timeout, dry_run
     )
-    if failed == 0:
+    if failed == 0 and not dry_run:
         previous_file.write_text(upstream_head + "\n")
         previous_sync_file.write_text(str(time.time_ns()) + "\n")
+    if dry_run:
+        print("[INFO] dry run. No actual file is written.")
     print(
         f"[INFO] crates sync complete: files={len(files)} entries={len(items)} downloaded={downloaded} present={present} failed={failed}"
     )
