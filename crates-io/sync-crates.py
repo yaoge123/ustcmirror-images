@@ -224,16 +224,18 @@ def fetch_one(
     if target.exists():
         return "present"
 
+    url = download_url(base_url, name, version)
+    tqdm.write(f"[INFO] downloading {url}")
+    if dry_run:
+        return "downloaded"
+
     target.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp_name = tempfile.mkstemp(
         prefix=target.name + ".", suffix=".tmp", dir=target.parent
     )
     os.close(fd)
     tmp_path = Path(tmp_name)
-    url = download_url(base_url, name, version)
-    tqdm.write(f"[INFO] downloading {url}")
-    if dry_run:
-        return "downloaded"
+
     last_error = None
     for attempt in range(retries + 1):
         try:
