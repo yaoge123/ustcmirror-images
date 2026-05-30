@@ -248,6 +248,7 @@ To specified the repo list to sync, you can:
 | `GITSYNC_TREELESS`                     | Use [treeless clone](https://github.blog/2020-12-21-get-up-to-speed-with-partial-clone-and-shallow-clone/) to save disk space. Defaults to `false`.           |
 | `GITSYNC_GEOMETRIC`                    | Use [geometric repacking](https://github.blog/2021-04-29-scaling-monorepo-maintenance/) to speed up repacking. Requires `GITSYNC_BITMAP`. Defaults to `true`. |
 | `GITSYNC_MAINTENANCE_INTERVAL_SECONDS` | Time interval of running `run_periodic_maintenance`. Defaults to 604800 (1 week).                                                                             |
+| `GITSYNC_REFLOG_EXPIRE`                | Value passed to both `git reflog expire --expire` and `--expire-unreachable`. Defaults to `all`.                                                              |
 | `GITSYNC_POST_FETCH_HOOK`              | Executable hook run after fetch/reset and before maintenance/repack. Useful for repository-specific post-processing. Defaults to unset.                       |
 
 ### google-repo

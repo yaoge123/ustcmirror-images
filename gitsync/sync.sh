@@ -15,6 +15,7 @@
 #GITSYNC_TREELESS=
 #GITSYNC_GEOMETRIC=
 #GITSYNC_MAINTENANCE_INTERVAL_SECONDS=
+#GITSYNC_REFLOG_EXPIRE=
 #GITSYNC_POST_FETCH_HOOK=
 
 is_empty() {
@@ -32,6 +33,7 @@ GITSYNC_CHECKOUT="${GITSYNC_CHECKOUT:-false}"
 GITSYNC_TREELESS="${GITSYNC_TREELESS:-false}"
 GITSYNC_GEOMETRIC="${GITSYNC_GEOMETRIC:-true}"
 GITSYNC_MAINTENANCE_INTERVAL_SECONDS="${GITSYNC_MAINTENANCE_INTERVAL_SECONDS:-604800}"
+GITSYNC_REFLOG_EXPIRE="${GITSYNC_REFLOG_EXPIRE:-all}"
 # This is used only when called by other syncing scripts.
 GITSYNC_POST_FETCH_HOOK="${GITSYNC_POST_FETCH_HOOK:-}"
 
@@ -55,8 +57,8 @@ run_periodic_maintenance() {
     fi
 
     git reflog expire \
-        --expire=all \
-        --expire-unreachable=all \
+        --expire="$GITSYNC_REFLOG_EXPIRE" \
+        --expire-unreachable="$GITSYNC_REFLOG_EXPIRE" \
         --all
     git gc --prune=now --no-cruft
     touch "$stamp"
