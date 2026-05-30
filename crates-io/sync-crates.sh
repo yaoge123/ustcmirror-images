@@ -6,7 +6,7 @@ set -eu
 INDEX_DIR="${TO%/}/index"
 CRATES_DIR="${TO%/}/crates"
 STATE_DIR="${TO%/}/state"
-export CRATES_PROXY="${CRATES_PROXY:-https://mirrors.ustc.edu.cn/crates.io/crates/{crate}/{crate}-{version}.crate}"
+export GITSYNC_REFLOG_EXPIRE=7.days
 
 mkdir -p "$INDEX_DIR" "$CRATES_DIR" "$STATE_DIR"
 
