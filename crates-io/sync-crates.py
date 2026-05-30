@@ -46,14 +46,18 @@ def resolve_upstream_head(index_dir: Path) -> str:
         return head
 
 
+def is_tracked_index_file(rel: Path) -> bool:
+    return len(rel.parts) >= 2 and all(
+        not part.startswith(".") for part in rel.parts[:-1]
+    )
+
+
 def iter_index_files(index_dir: Path):
     for path in index_dir.rglob("*"):
         if not path.is_file():
             continue
         rel = path.relative_to(index_dir)
-        if rel.parts[0] == ".git":
-            continue
-        if rel.name == "config.json":
+        if not is_tracked_index_file(rel):
             continue
         yield path
 
@@ -70,9 +74,12 @@ def changed_index_files(index_dir: Path, previous: str, current: str) -> list[Pa
     output = git(["diff", "--name-only", previous, current, "--"], index_dir)
     paths = []
     for name in output.splitlines():
-        if not name or name == "config.json" or name.startswith(".git/"):
+        if not name:
             continue
-        path = index_dir / name
+        rel = Path(name)
+        if not is_tracked_index_file(rel):
+            continue
+        path = index_dir / rel
         if path.is_file():
             paths.append(path)
     return paths
@@ -191,9 +198,7 @@ def sync_crates(
                 try:
                     result = future.result()
                 except Exception as exc:
-                    print(
-                        f"[ERROR] sync failed for {item[0]} {item[1]}: {exc}"
-                    )
+                    print(f"[ERROR] sync failed for {item[0]} {item[1]}: {exc}")
                     failed += 1
                     continue
                 if result == "downloaded":
