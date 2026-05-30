@@ -11,6 +11,6 @@ export GITSYNC_URL="${GITSYNC_URL:-https://github.com/rust-lang/crates.io-index.
 export GITSYNC_CHECKOUT=true
 export GITSYNC_BITMAP=true
 export GITSYNC_GEOMETRIC="${GITSYNC_GEOMETRIC:-${GEOMETRIC_REPACK:-false}}"
-export GITSYNC_POST_FETCH_HOOK=/crates-hook.sh
+export GITSYNC_POST_FETCH_HOOK=/crates-index-hook.sh
 
 exec /sync.sh
