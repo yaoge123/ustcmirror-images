@@ -294,7 +294,7 @@ def main() -> int:
 
     seen = set()
     items = []
-    for path in files:
+    for path in tqdm(files):
         for item in parse_entries(path):
             if item in seen:
                 continue
