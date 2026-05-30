@@ -54,13 +54,17 @@ def is_tracked_index_file(rel: Path) -> bool:
 
 
 def iter_index_files(index_dir: Path):
-    for path in index_dir.rglob("*"):
-        if not path.is_file():
-            continue
-        rel = path.relative_to(index_dir)
-        if not is_tracked_index_file(rel):
-            continue
-        yield path
+    stack = [str(index_dir)]
+    while stack:
+        # Performance: pathlib is not used here as it calls stat for every file, too slow.
+        with os.scandir(stack.pop()) as it:
+            for entry in it:
+                if entry.is_dir(follow_symlinks=False):
+                    stack.append(entry.path)
+                elif entry.is_file():
+                    rel = Path(entry.path).relative_to(index_dir)
+                    if is_tracked_index_file(rel):
+                        yield Path(entry.path)
 
 
 def changed_index_files_by_mtime(index_dir: Path, previous_sync_ns: int) -> list[Path]:
