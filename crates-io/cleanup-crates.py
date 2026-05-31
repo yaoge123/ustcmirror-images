@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # A simple script to scan index file, and remove nonexisting crate folder.
 
+import shutil
 import os
 from pathlib import Path
 import sys
@@ -39,7 +40,7 @@ def main(index_dir: Path, crates_dir: Path):
             print(f"[INFO] {folder_name} shall be removed (dry run)")
         else:
             print(f"[INFO] {folder_name} shall be removed")
-            os.removedirs(crates_dir / folder_name)
+            shutil.rmtree(crates_dir / folder_name)
 
 
 if __name__ == "__main__":
