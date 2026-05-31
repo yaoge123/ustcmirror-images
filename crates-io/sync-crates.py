@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import argparse
-import hashlib
 import io
 import os
 from pathlib import Path
@@ -15,6 +14,24 @@ import urllib.error
 import urllib.request
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from tqdm import tqdm
+
+from utils_crates import iter_index_files, is_tracked_index_file
+
+jobs = max(1, int(os.environ.get("CRATES_JOBS", "4")))
+retries = max(0, int(os.environ.get("CRATES_RETRY", "2")))
+timeout = max(1, int(os.environ.get("CRATES_TIMEOUT", "60")))
+dry_run = os.environ.get("CRATES_DRY_RUN", "false").lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+upstream_base = os.environ.get(
+    "CRATES_FILES_UPSTREAM", "https://static.crates.io/crates"
+)
+user_agent = os.environ.get(
+    "CRATES_USER_AGENT", "ustcmirror-crates-io/1 (+https://mirrors.ustc.edu.cn)"
+)
 
 
 def git(args: list[str], repo: Path) -> str:
@@ -46,26 +63,6 @@ def resolve_upstream_head(index_dir: Path) -> str:
         return git(["rev-parse", f"{head}^"], index_dir)
     except subprocess.CalledProcessError:
         return head
-
-
-def is_tracked_index_file(rel: Path) -> bool:
-    return len(rel.parts) >= 2 and all(
-        not part.startswith(".") for part in rel.parts[:-1]
-    )
-
-
-def iter_index_files(index_dir: Path):
-    stack = [str(index_dir)]
-    while stack:
-        # Performance: pathlib is not used here as it calls stat for every file, too slow.
-        with os.scandir(stack.pop()) as it:
-            for entry in it:
-                if entry.is_dir(follow_symlinks=False):
-                    stack.append(entry.path)
-                elif entry.is_file():
-                    rel = Path(entry.path).relative_to(index_dir)
-                    if is_tracked_index_file(rel):
-                        yield Path(entry.path)
 
 
 def changed_index_files_by_mtime(index_dir: Path, previous_sync_ns: int) -> list[Path]:
@@ -214,12 +211,8 @@ def fetch_one(
     crates_dir: Path,
     base_url: str,
     item: tuple[str, str, str],
-    user_agent: str,
-    retries: int,
-    timeout: int,
-    dry_run: bool,
 ) -> str:
-    name, version, checksum = item
+    name, version, _checksum = item
     target = crate_target(crates_dir, name, version)
     if target.exists():
         return "present"
@@ -270,11 +263,6 @@ def sync_crates(
     crates_dir: Path,
     base_url: str,
     items: list[tuple[str, str, str]],
-    user_agent: str,
-    jobs: int,
-    retries: int,
-    timeout: int,
-    dry_run: bool,
 ) -> tuple[int, int, int]:
     downloaded = 0
     present = 0
@@ -294,10 +282,6 @@ def sync_crates(
                 crates_dir,
                 base_url,
                 item,
-                user_agent,
-                retries,
-                timeout,
-                dry_run,
             ): item
             for item in items
         }
@@ -339,21 +323,6 @@ def main() -> int:
         int(previous_sync_file.read_text().strip())
         if previous_sync_file.exists()
         else None
-    )
-    jobs = max(1, int(os.environ.get("CRATES_JOBS", "4")))
-    retries = max(0, int(os.environ.get("CRATES_RETRY", "2")))
-    timeout = max(1, int(os.environ.get("CRATES_TIMEOUT", "60")))
-    dry_run = os.environ.get("CRATES_DRY_RUN", "false").lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }
-    upstream_base = os.environ.get(
-        "CRATES_FILES_UPSTREAM", "https://static.crates.io/crates"
-    )
-    user_agent = os.environ.get(
-        "CRATES_USER_AGENT", "ustcmirror-crates-io/1 (+https://mirrors.ustc.edu.cn)"
     )
 
     if previous is None:
@@ -397,9 +366,7 @@ def main() -> int:
         seen.add(item)
         items.append(item)
 
-    downloaded, present, failed = sync_crates(
-        crates_dir, upstream_base, items, user_agent, jobs, retries, timeout, dry_run
-    )
+    downloaded, present, failed = sync_crates(crates_dir, upstream_base, items)
     if failed == 0 and not dry_run:
         previous_file.write_text(upstream_head + "\n")
         previous_sync_file.write_text(str(time.time_ns()) + "\n")
