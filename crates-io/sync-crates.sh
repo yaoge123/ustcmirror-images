@@ -12,9 +12,12 @@ mkdir -p "$INDEX_DIR" "$CRATES_DIR" "$STATE_DIR"
 
 # Reuse the existing crates.io-index image logic, but keep the index checkout
 # separate from crate tarballs to avoid unnecessary git and filesystem churn.
-TO="$INDEX_DIR" /sync-crates-index.sh
-
-exec python3 /sync-crates.py \
+# If any of these steps fail, the sync script shall be stopped.
+TO="$INDEX_DIR" /sync-crates-index.sh && \
+python3 /sync-crates.py \
     --index "$INDEX_DIR" \
     --crates "$CRATES_DIR" \
-    --state "$STATE_DIR"
+    --state "$STATE_DIR" && \
+python3 /cleanup-crates.py \
+    --index "$INDEX_DIR" \
+    --crates "$CRATES_DIR"
