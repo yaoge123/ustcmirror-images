@@ -1,0 +1,4 @@
+#!/bin/sh
+
+HOMEBREW_BOTTLE_DOMAIN=${HOMEBREW_BOTTLE_DOMAIN:-https://ghcr.io/v2/homebrew/}
+echo "$HOMEBREW_BOTTLE_DOMAIN"

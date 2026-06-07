@@ -38,6 +38,17 @@ main() {
 
     chown "$OWNER" "$TO" # not recursive
 
+    if [[ -x /upstream.sh ]]; then
+        if /upstream.sh > "$LOGDIR/yuki_upstream.txt.new"; then
+            mv "$LOGDIR/yuki_upstream.txt.new" "$LOGDIR/yuki_upstream.txt"
+            cat "$LOGDIR/yuki_upstream.txt"
+            rm -f "$LOGDIR/yuki_upstream.txt.new"
+        else
+            log "/upstream.sh failed"
+    else
+        log "/upstream.sh does not exist, or is not executable"
+    fi
+
     [[ -f $PRE_SYNC_SCRIPT ]] && . "$PRE_SYNC_SCRIPT"
 
     date '+============ SYNC STARTED AT %F %T ============'

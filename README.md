@@ -25,6 +25,7 @@ docker run --rm \
 
 - `/data`: The mount point of the repository on the host. You can refer to it as environment variable `TO` in your program.
 - `/log`: The mount point of the host directory that save logs. You can refer to it as environment variable `LOGDIR` in your program.
+   - The image upstream will be written to `$LOGDIR/yuki_upstream.txt`.
 
 ### Common Configuration Parameters(AKA environment variables)
 
