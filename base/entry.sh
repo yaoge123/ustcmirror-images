@@ -45,6 +45,7 @@ main() {
             rm -f "$LOGDIR/yuki_upstream.txt.new"
         else
             log "/upstream.sh failed"
+        fi
     else
         log "/upstream.sh does not exist, or is not executable"
     fi
