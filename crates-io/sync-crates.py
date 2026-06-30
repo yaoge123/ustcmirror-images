@@ -223,11 +223,7 @@ def fetch_one(
         return "downloaded"
 
     target.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_name = tempfile.mkstemp(
-        prefix=target.name + ".", suffix=".tmp", dir=target.parent
-    )
-    os.close(fd)
-    tmp_path = Path(tmp_name)
+    tmp_path = target.parent / f"{target.name}.tmp"
 
     last_error = None
     for attempt in range(retries + 1):
@@ -246,16 +242,7 @@ def fetch_one(
             last_error = exc
             if attempt == retries:
                 break
-            if tmp_path.exists():
-                tmp_path.unlink()
-            fd, tmp_name = tempfile.mkstemp(
-                prefix=target.name + ".", suffix=".tmp", dir=target.parent
-            )
-            os.close(fd)
-            tmp_path = Path(tmp_name)
 
-    if tmp_path.exists():
-        tmp_path.unlink()
     raise RuntimeError(f"failed to fetch {name} {version} from {url}: {last_error}")
 
 
