@@ -8,6 +8,7 @@ mkdir -p "$TO/api"
 mkdir -p "$TO/api/formula"
 mkdir -p "$TO/api/cask"
 mkdir -p "$TO/api/cask-source"
+mkdir -p "$TO/api/internal"
 
 BOTTLES=$(mktemp)
 CASK_SOURCES=$(mktemp)
@@ -27,6 +28,7 @@ FILES=(
 	"cask.jws.json"
 	"formula_tap_migrations.jws.json"
 	"cask_tap_migrations.jws.json"
+	"internal/executables.txt"
 )
 URL_BASE="https://formulae.brew.sh/api"
 
@@ -44,6 +46,20 @@ for file in "${FILES[@]}"; do
 	fi
 	mv "$TO/api/$file".tmp "$TO/api/$file"
 	# create gz files to save bandwidth (with nginx gzip_static)
+	gzip --keep --force "$TO/api/$file"
+done
+
+# Download internal/packages.<tag>.jws.json for all bottle tags
+# Extract tag list dynamically from formula.json bottle data
+BOTTLE_TAGS=$(jq -r '[.[].bottle.stable.files | select(. != null) | keys[] | select(. != "all")] | unique | .[]' "$FORMULA_JSON")
+for tag in $BOTTLE_TAGS; do
+	file="internal/packages.${tag}.jws.json"
+	$CURL_WRAP --compressed -sSL -o "$TO/api/$file".tmp "$URL_BASE/$file"
+	if [[ $? -ne 0 ]]; then
+		echo "[FATAL] download $file meta-data failed."
+		exit 2
+	fi
+	mv "$TO/api/$file".tmp "$TO/api/$file"
 	gzip --keep --force "$TO/api/$file"
 done
 
